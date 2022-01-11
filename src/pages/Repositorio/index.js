@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { FaArrowLeft } from 'react-icons/fa';
-import { Container, Owner, Loading, BackButton, IssuesList, Pagination } from './styles';
+import { Container, Owner, Loading, BackButton, IssuesList, Pagination, FilterList } from './styles';
 import api from '../../services/api';
 
 export default function Repositorio () {
@@ -12,6 +12,12 @@ export default function Repositorio () {
     const [issues, setIssues] = useState([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
+    const [filters, setFilters] = useState(
+        {state: 'all', label: 'Todas', active: true},
+        {state: 'open', label: 'Abertas', active: false},
+        {state: 'closed', label: 'Fechadas', active: false},
+    );
+    const [filterIndex, setFilterIndex] = useState(0);
 
     useEffect(()=>{
         
@@ -23,7 +29,7 @@ export default function Repositorio () {
                 api.get(`/repos/${nomeRepo}`),
                 api.get(`/repos/${nomeRepo}/issues`, {
                     params: {
-                        state: 'open',
+                        state: filters.find(f => f.active).state,
                         per_page: 5
                     }
                 })
@@ -31,7 +37,6 @@ export default function Repositorio () {
 
             setRepositorio(repositorioData);
             setIssues(issuesData);
-            console.log(issuesData);
             setLoading(false);
         }
 
@@ -39,27 +44,34 @@ export default function Repositorio () {
 
     },[params.repositorio]);
 
-    
-
     useEffect(()=>{
 
         async function loadIssue(){
+            
             const nomeRepo = params.repositorio;
 
             const response = await api.get(`/repos/${nomeRepo}/issues`, {
                 params: {
-                    state: 'open',
+                    state: filters[filterIndex].state,
                     page,
-                    per_page: 5,
+                    per_page: 5
                 },
             });
 
-            setIssues(response.data);
+            setIssues(response);
         }
 
         loadIssue();
 
-    },[params.repositorio, page]);
+    },[filterIndex, filters, params.repositorio, page]);
+
+    function handlePage(action){
+        setPage(action === 'back' ? page - 1 : page + 1);
+    }
+
+    function handleFilter(index){
+        setFilterIndex(index);
+    }
 
     if(loading){
         return (
@@ -67,10 +79,6 @@ export default function Repositorio () {
                 <h1>Carregando...</h1>
             </Loading>
         );
-    }
-
-    function handlePage(action){
-        setPage(action === 'back' ? page - 1 : page + 1);
     }
 
     return (
@@ -83,6 +91,18 @@ export default function Repositorio () {
                 <h1>{repositorio.data.name}</h1>
                 <p>{repositorio.data.description}</p>
             </Owner>
+
+            <FilterList active={filterIndex}>
+                {filters.map((filter, index)=>(
+                    <button 
+                        type="button" 
+                        key={filter.label}
+                        onClick={()=> handleFilter(index)}
+                        >
+                        {filter.label}
+                    </button>
+                ))}
+            </FilterList>
 
             <IssuesList>
                 {issues.data.map(issue => (
@@ -102,8 +122,8 @@ export default function Repositorio () {
             </IssuesList>
 
             <Pagination>
-                <button onClick={()=> handlePage('back')} disabled={page < 2}>Voltar</button>
-                <button onClick={()=> handlePage('next')}>Proximo</button>
+                <button type="button" onClick={()=> handlePage('back')} disabled={page < 2}>Voltar</button>
+                <button type="button" onClick={()=> handlePage('next')}>Proximo</button>
             </Pagination>
         </Container>
     );
